@@ -38,16 +38,17 @@ battery_density = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast TODO:
 fixed_mass = 6 # TODO: make this something reasonable
 
 
-def hover_design(no_blades = 2):
+def hover_design(no_rotors, no_blades = 2):
     # STEP 1: total mass
     total_mass = MASS_LIMIT * (1 - CONTINGENCY_WEIGHT_FACTOR)
 
     # STEP 2: thrust
     thrust = HOVER_THRUST_CONDITION * total_mass * MARS_GRAVITY
+    thrust_per_rotor = thrust / no_rotors
 
     # STEP 3: rotor radius
     tip_speed = SPEED_OF_SOUND * MACH_BLADE_TIP_LIMIT
-    blade_area = thrust / (DENSITY * blade_loading * tip_speed**2)
+    blade_area = thrust_per_rotor / (DENSITY * blade_loading * tip_speed**2)
     # TODO: find relationship between blade area and rotor radius
     rotor_radius = blade_area / 2 
     disk_area = rotor_radius**2 * np.pi
@@ -57,10 +58,12 @@ def hover_design(no_blades = 2):
 
     # STEP 5: thrust power requirements
     thrust_power = induced_power_factor * thrust * np.sqrt(thrust / (2 * DENSITY * disk_area)) + DENSITY * blade_area * tip_speed**3 * drag_coef_mean / 8
+    thrust_power_per_rotor = induced_power_factor * thrust_per_rotor * np.sqrt(thrust_per_rotor / (2 * DENSITY * disk_area)) + DENSITY * blade_area * tip_speed**3 * drag_coef_mean / 8
 
     # STEP 6: torque
     rotational_speed = tip_speed / rotor_radius
-    torque = thrust_power / propulsive_efficiency / rotational_speed
+    torque_per_rotor = thrust_power_per_rotor / propulsive_efficiency / rotational_speed
+    torque = torque_per_rotor * no_rotors
 
     # STEP 7: energy per sol
     avionics_energy = avionics_power * SOL_SECONDS
