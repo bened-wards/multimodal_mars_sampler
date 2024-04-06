@@ -50,20 +50,19 @@ def hover_design(no_rotors, no_blades = 2):
     tip_speed = SPEED_OF_SOUND * MACH_BLADE_TIP_LIMIT
     blade_area = thrust_per_rotor / (DENSITY * blade_loading * tip_speed**2)
     # TODO: find relationship between blade area and rotor radius
-    rotor_radius = blade_area / 2 
+    rotor_radius = blade_area / 4
     disk_area = rotor_radius**2 * np.pi
 
     if rotor_radius * no_blades > MAX_DIAMETER:
         raise ValueError("Cannot create required thrust to fit in aeroshell.")
 
     # STEP 5: thrust power requirements
-    thrust_power = induced_power_factor * thrust * np.sqrt(thrust / (2 * DENSITY * disk_area)) + DENSITY * blade_area * tip_speed**3 * drag_coef_mean / 8
     thrust_power_per_rotor = induced_power_factor * thrust_per_rotor * np.sqrt(thrust_per_rotor / (2 * DENSITY * disk_area)) + DENSITY * blade_area * tip_speed**3 * drag_coef_mean / 8
+    thrust_power = thrust_power_per_rotor * no_rotors
 
     # STEP 6: torque
     rotational_speed = tip_speed / rotor_radius
-    torque_per_rotor = thrust_power_per_rotor / propulsive_efficiency / rotational_speed
-    torque = torque_per_rotor * no_rotors
+    torque = thrust_power / propulsive_efficiency / rotational_speed
 
     # STEP 7: energy per sol
     avionics_energy = avionics_power * SOL_SECONDS
