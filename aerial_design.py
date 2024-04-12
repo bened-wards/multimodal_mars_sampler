@@ -38,9 +38,9 @@ battery_density = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast TODO:
 fixed_mass = 6 # TODO: make this something reasonable
 
 
-def hover_design(no_rotors, no_blades = 2):
+def hover_design(design_mass, no_rotors, no_blades = 2):
     # STEP 1: total mass
-    total_mass = MASS_LIMIT * (1 - CONTINGENCY_WEIGHT_FACTOR)
+    total_mass = design_mass * (1 - CONTINGENCY_WEIGHT_FACTOR)
 
     # STEP 2: thrust
     thrust = HOVER_THRUST_CONDITION * total_mass * MARS_GRAVITY
@@ -53,7 +53,7 @@ def hover_design(no_rotors, no_blades = 2):
     rotor_radius = blade_area / 4
     disk_area = rotor_radius**2 * np.pi
 
-    if rotor_radius * no_blades > MAX_DIAMETER:
+    if rotor_radius * 2 * no_rotors > MAX_DIAMETER:
         raise ValueError("Cannot create required thrust to fit in aeroshell.")
 
     # STEP 5: thrust power requirements
@@ -89,3 +89,16 @@ def hover_design(no_rotors, no_blades = 2):
     payload = total_mass - empty_mass
     if payload < 0:
         raise ValueError(f"Payload is less than zero: {payload:.2f}! Cannot lift anything.")
+    
+
+# analysis (for each design)
+
+# initial verification using design_mass = MASS_LIMIT
+
+# payload efficiency tradeoff
+# - vary design_mass and calculate payload/design_mass
+
+# payload vs hover/range tradeoff
+# - fix design_mass (maybe at MASS_LIMIT, maybe at maximum payload efficiency) 
+# - decrease the proportion of payload for sampling and move into battery to provide more energy/power
+# - back calculate HOVER_TIME or FORWARD_FLIGHT_RANGE from total_power
