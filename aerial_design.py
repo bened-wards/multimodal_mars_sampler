@@ -71,13 +71,15 @@ class DesignAssumptions:
     PROPULSIVE_EFFICIENCY = MOTOR_EFFICIENCY * (1 - ROTOR_SERVO_POWER)
 
     AVIONICS_POWER = 35 # W - NASA MSH paper
-    SAMPLING_MECHANISM_POWER = 15 # W - TODO make this more accurate but based on HoneyBee corer for now
-    SAMPLING_TIME = 5 * 60 # seconds -  TODO make this more accurate, just random for now
+    SAMPLING_MECHANISM_POWER = 15 # W - TODO make this more accurate but based on HoneyBee corer for now 
+    # -> might want to make larger since optimising for largest payload which would imply larger power
+    SAMPLING_TIME = 15 * 60 # seconds
+    
     SOLAR_PANEL_POWER_DENSITY = 21.9 # W/m^2 - NASA MSH paper based on MH
     SOLAR_PANEL_MASS_DENSITY = 2.0 # kg/m^2
     USABLE_BATTERY_PERC = 0.7 # 10-80% depth-of-discharge
-    BATTERY_DENSITY = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast TODO: see if there is better forecast
-    FIXED_MASS = 6 # TODO: make this something reasonable - maybe function of total mass (heavier drone requires more structure?)
+    BATTERY_DENSITY = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast 
+    ELECTRONICS_MASS = 3 # TODO: make this something reasonable - should represent flight control/avionics weight
 
 class AircraftType:
     CLASSIC_ROTORCRAFT = 1
@@ -154,8 +156,7 @@ class Rotorcraft:
     
     def calc_rotor_radius(self, thrust_per_rotor):
         blade_area = thrust_per_rotor / (mars_constants.DENSITY * self.da.BLADE_LOADING * self.dc.TIP_SPEED**2)
-        # TODO: find relationship between blade area and rotor radius:
-        rotor_radius = blade_area / 4
+        rotor_radius = 2.8978 * blade_area ** 0.5
         return rotor_radius
     
     def calc_thrust_power(self, thrust_per_rotor, blade_area):
@@ -172,7 +173,7 @@ class Rotorcraft:
         flight_energy = self._mission_scenario.get_single_flight_energy(self.forward_velocity, self.hover_power)
         sampling_mechanism_energy = self.da.SAMPLING_MECHANISM_POWER * self.da.SAMPLING_TIME
         avionics_energy = self.da.AVIONICS_POWER * mars_constants.SOL_SECONDS
-        sleep_energy = 15 * self._design_mass**(1/3) # TODO: is this correct interpretation from NASA MSH paper? 
+        sleep_energy = 0.518 * self._design_mass**(1/3) * mars_constants.SOL_SECONDS
         return flight_energy + sampling_mechanism_energy + sleep_energy + avionics_energy 
     
     def calc_empty_mass(self, torque, energy, blade_area):
@@ -186,13 +187,16 @@ class Rotorcraft:
         energy_required_Wh = energy_Wh / self.da.USABLE_BATTERY_PERC # TODO: did NASA MSH paper get this wrong and not actually consider USABLE_BATTERY_PERC?
         battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
 
-        rotor_mass = 1.1 * blade_area # NASA MSH paper. TODO: find rotor material density to make this function of rotor radius?
+        # TODO decide between these methods
+        # rotor_mass = 1.1 * blade_area # NASA MSH paper
+        rotor_mass = (0.168/0.72) * self._rotor_radius # ROAMX blade correlation between mass and radius
         
-        # TODO shall we consider things like hub, shaft, support arms, fuselage -> or just include in fixed_mass
-        # TODO: make this something reasonable - maybe function of total mass (heavier drone requires more structure?)
-        fixed_mass = self.da.FIXED_MASS
+        # TODO could consider things like hub, shaft, support arms, fuselage -> however I think this is overspecifying and hence scaling with design mass
+        structure_mass = 1/3 * self._design_mass # based on MSH paper designs
 
-        return motor_mass + solar_panel_mass + battery_mass + rotor_mass + fixed_mass
+        flight_electronics_mass = self.da.ELECTRONICS_MASS
+
+        return motor_mass + solar_panel_mass + battery_mass + rotor_mass + structure_mass + flight_electronics_mass
     
     def calc_energy_from_battery_mass(self, battery_mass):
         """battery_mass in kg, energy returned in joules"""
@@ -235,8 +239,7 @@ class Rotorcraft:
     
     @property
     def blade_area(self):
-        # TODO: inverse this equation with real blade area relationship
-        return self._rotor_radius * 4
+        return 0.119087 * self._rotor_radius ** 2
     
     @property
     def disk_area(self):
