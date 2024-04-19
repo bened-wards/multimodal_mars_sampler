@@ -1,6 +1,7 @@
 from rotorcraft import ConventionalRotorcraft, CoaxialRotorcraft, TiltRotorcraft
 from mission_design import FlightMissionScenario, DesignConstraints, DesignAssumptions
 import matplotlib.pyplot as plt
+import numpy as np
 
 def msh_test():
     # mission setup

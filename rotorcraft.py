@@ -19,6 +19,7 @@ class Rotorcraft:
     ##########################################################
 
     def calc_and_verify_initial_design(self, design_mass=None):
+        print("\n\n-----\nNew analysis: calculation and verification of initial design\n-----\n")
         self._design_mass = self.dc.MASS_LIMIT if not design_mass else design_mass
         print(f"Design mass of rotorcraft is: {self._design_mass:.2f}kg")
 
