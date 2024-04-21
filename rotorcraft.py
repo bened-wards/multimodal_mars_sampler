@@ -214,7 +214,7 @@ class Rotorcraft:
     @property
     def hover_power(self):
         print("Hover power calculations:")
-        hover_tip_speed = self.calc_tip_speed(self.hover_thrust_per_rotor, self.blade_area)
+        hover_tip_speed = self.calc_tip_speed(self.hover_thrust_per_rotor, self.blade_area) # TODO: maybe make this a property also?
         return self.calc_thrust_power(self.hover_thrust_per_rotor, self.blade_area, self.induced_power_factor_hover, hover_tip_speed)
     
     @property
@@ -226,7 +226,8 @@ class Rotorcraft:
     
     @property
     def forward_velocity(self):    
-        return self.dc.ADVANCING_TIP_SPEED_LIMIT - self.dc.TIP_SPEED_LIMIT
+        "Forward velocity limited by the advancing blade tip mach number. Assumes flying with hover condition tip speed." # TODO: Could define a forward flight angle, and determine the increased thrust required for forward flight. Then this could be used to determine the tip speed at forward flight and a more accurate forward flight speed.
+        return self.dc.ADVANCING_TIP_SPEED_LIMIT - self.calc_tip_speed(self.hover_thrust_per_rotor, self.blade_area)
 
     @property
     def induced_power_factor_hover(self):
@@ -300,4 +301,5 @@ class TiltRotorcraft(Rotorcraft):
     # TODO -> update this with forward velocity of tiltrotor
     @property
     def forward_velocity(self):    
+        advancing_blade_limit = self.dc.ADVANCING_TIP_SPEED_LIMIT - self.dc.TIP_SPEED_LIMIT
         return 1
