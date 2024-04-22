@@ -32,11 +32,15 @@ class Rotorcraft:
         if self._rotor_radius * 2 > self.dc.MAX_DIAMETER:
             raise ValueError(f"Cannot create required thrust to fit in aeroshell. Rotor radius: {self._rotor_radius:.2f}, aeroshell diameter: {self.dc.MAX_DIAMETER}")
         
-        self._max_thrust_power = self.calc_max_thrust_power(self.hover_thrust_per_rotor, self.blade_area)
-        print(f"Power from motors at maximum thrust is: {self._max_thrust_power:.2f}W")
+        self._max_thrust_power = self.calc_max_thrust_power(self.hover_thrust_per_rotor, self.rotor_area)
+        print(f"Power required for maximum thrust is: {self._max_thrust_power:.2f}W")
 
         self._torque = self.calc_torque(self._max_thrust_power, self._rotor_radius)
         print(f"Maximum torque required at maximum thrust is: {self._torque:.2f}N.m")
+
+        if self.max_forward_velocity < self._mission_scenario.FORWARD_FLIGHT_SPEED:
+            raise ValueError(f"Cannot travel at desired speed for mission of {self._mission_scenario.FORWARD_FLIGHT_SPEED:.2f}m/s. Can only reach: {self.max_forward_velocity:.2f}m/s")
+        print(f"Maximum forward velocity of aircraft is: {self.max_forward_velocity:.2f}m/s")
 
         self._energy_per_sol = self.calc_energy_per_sol()
         print(f"Energy required for rotorcraft per sol is: {self._energy_per_sol/1e6:.3f}MJ")
@@ -82,24 +86,28 @@ class Rotorcraft:
         """Calculate thrust based on total design mass, not mass available for componentry (e.g. 50kg, with 40kg left for components)"""
         return self.dc.HOVER_THRUST_CONDITION * design_mass * mars_constants.GRAVITY
     
-    def calc_blade_area(self, thrust_per_rotor):
+    def calc_rotor_area(self, thrust_per_rotor):
+        """Rotor area of one rotor based on equation solidity = thrust / (density * blade_area * tip_speed^2)"""
         return thrust_per_rotor / (mars_constants.DENSITY * self.da.BLADE_LOADING * self.dc.TIP_SPEED_LIMIT**2)
     
     def calc_tip_speed(self, thrust_per_rotor, blade_area):
         return np.sqrt(thrust_per_rotor / (mars_constants.DENSITY * self.da.BLADE_LOADING * blade_area))
 
     def calc_rotor_radius(self, thrust_per_rotor):
-        blade_area = self.calc_blade_area(thrust_per_rotor)
+        rotor_area = self.calc_rotor_area(thrust_per_rotor)
+        blade_area = rotor_area / self._no_blades
         rotor_radius = 2.8978 * blade_area ** 0.5
         return rotor_radius
 
-    def calc_thrust_power(self, thrust_per_rotor, blade_area, induced_power_factor, tip_speed):
+    def calc_thrust_power(self, thrust_per_rotor, blade_area, induced_power_factor, tip_speed, no_rotors=None):
+        if no_rotors is None:
+            no_rotors = self._no_rotors
         induced_power = induced_power_factor * thrust_per_rotor * \
             np.sqrt(thrust_per_rotor / (2 * mars_constants.DENSITY * self.disk_area))
         profile_power = mars_constants.DENSITY * blade_area * tip_speed**3 * self.da.DRAG_COEF_MEAN / 8
-        print(f"Induced power is {induced_power:.2f}W, profile power is {profile_power:.2f}W")
+        print(f"Induced power per rotor is {induced_power:.2f}W, profile power per rotor is {profile_power:.2f}W")
         thrust_power_per_rotor =  induced_power + profile_power
-        return thrust_power_per_rotor * self._no_rotors
+        return thrust_power_per_rotor * no_rotors / self.da.PROPULSIVE_EFFICIENCY
     
     def calc_max_thrust_power(self, max_thrust_per_rotor, blade_area):
         """Assuming ok to use hover induced power factor since thrust has increased for induced power.
@@ -108,45 +116,47 @@ class Rotorcraft:
         return self.calc_thrust_power(max_thrust_per_rotor, blade_area, self.induced_power_factor_hover, self.dc.TIP_SPEED_LIMIT)        
     
     def calc_torque(self, thrust_power, rotor_radius):
-        """From Ronan's aerodynamics notes"""
+        """From Ronan's aerodynamics notes""" 
         rotational_speed = self.dc.TIP_SPEED_LIMIT / rotor_radius
-        return thrust_power / self.da.PROPULSIVE_EFFICIENCY / rotational_speed        
+        print(f"Motor rotational speed at hover: {rotational_speed / (rotor_radius * 2 * np.pi) * 60:.2f}RPM")
+        print(f"Power required from the motors at max thrust is: {thrust_power:.2f}W")
+        print(f"Motor is specced to: {self.hover_power * 1.5:.2f}W (150% hover power)")
+        return thrust_power / rotational_speed
     
     def calc_energy_per_sol(self):
         print("----\nEnergy calculations\n----")
-        print(f"Forward velocity used for mission: {self.forward_velocity:.2f}m/s")
-        flight_energy = self._mission_scenario.get_single_flight_energy(self.hover_power, self.forward_velocity, self.f_flight_power, self.da.AVIONICS_POWER)
+        print(f"Forward velocity used for mission: {self._mission_scenario.FORWARD_FLIGHT_SPEED:.2f}m/s")
+        flight_energy = self._mission_scenario.get_single_flight_energy(self.hover_power, self.f_flight_power, self.da.AVIONICS_POWER)
         print(f"Single flight: {flight_energy/1e6:.3f}MJ")
         sampling_mechanism_energy = self.da.SAMPLING_MECHANISM_POWER * self.da.SAMPLING_TIME
         print(f"Sampling mechanism: {sampling_mechanism_energy/1e6:.3f}MJ")
-
-        # TODO -> avionics only used during mission time?
-        # avionics_energy = self.da.AVIONICS_POWER * flight_time
-        # print(f"Avionics: {avionics_energy/1e6:.3f}MJ")
-
         sleep_energy = 0.518 * self._design_mass**(1/3) * mars_constants.SOL_SECONDS
         print(f"Sleeping: {sleep_energy/1e6:.3f}MJ")
-        return flight_energy + sampling_mechanism_energy + sleep_energy 
+
+        mission_energy = flight_energy + sampling_mechanism_energy + sleep_energy 
+        return self.da.BATTERY_CONTINGENCY * mission_energy
     
     def calc_empty_mass(self, torque, energy):
         print("----\nMass calculations\n----")
         motor_mass = 0.076 * torque**0.86 # kg - NASA MSH (based on MH)
         print(f"Motor: {motor_mass:.2f}kg")
-        total_power = energy / mars_constants.SOL_SECONDS
+        
+        energy_required = energy / self.da.USABLE_BATTERY_PERC
+        energy_required_Wh = energy_required / (60*60)
+        battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
+        print(f"Battery: {battery_mass:.2f}kg")
+
+        total_power = energy_required / mars_constants.SOL_SECONDS
         solar_panel_area = total_power / self.da.SOLAR_PANEL_POWER_DENSITY # m^2
         solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
         print(f"Solar panel: {solar_panel_mass:.2f}kg")
-        energy_Wh = energy / (60*60)
-        energy_required_Wh = energy_Wh / self.da.USABLE_BATTERY_PERC # TODO: did NASA MSH paper get this wrong and not actually consider USABLE_BATTERY_PERC?
-        battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
-        print(f"Battery: {battery_mass:.2f}kg")
         # TODO decide between these methods
-        # rotor_mass = 1.1 * blade_area # NASA MSH paper
-        rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades # ROAMX blade correlation between mass and radius
+        # rotor_mass = 1.1 * self.rotor_area * self._no_rotors# NASA MSH paper
+        rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
         print(f"Rotors: {rotor_mass:.2f}kg")
         # TODO could consider things like hub, shaft, support arms, fuselage -> however I think this is overspecifying and hence scaling with design mass
-        structure_mass = 1/3 * self._design_mass # based on MSH paper designs
-        print(f"Structure: {structure_mass:.2f}kg")
+        structure_mass = 1/3 * self._design_mass - rotor_mass # based on MSH paper designs
+        print(f"Structure: {structure_mass + rotor_mass:.2f}kg")
         flight_electronics_mass = self.da.ELECTRONICS_MASS
         print(f"Flight electronics: {flight_electronics_mass:.2f}kg")
         return motor_mass + solar_panel_mass + battery_mass + rotor_mass + structure_mass + flight_electronics_mass
@@ -162,7 +172,7 @@ class Rotorcraft:
         return energy / self.hover_power
     
     def f_flight_distance_from_energy(self, energy):
-        return energy / self.forward_velocity
+        return energy / self._mission_scenario.FORWARD_FLIGHT_SPEED
     
     ##########################################################
     ##### GETTERS AND SETTERS
@@ -199,7 +209,12 @@ class Rotorcraft:
         return self.max_thrust_per_rotor / self.dc.HOVER_THRUST_CONDITION
     
     @property
-    def blade_area(self):
+    def f_flight_thrust_per_rotor(self):
+        return self.hover_thrust_per_rotor / np.cos(self.da.FORWARD_FLIGHT_TILT_ANGLE * np.pi / 180)
+    
+    @property
+    def rotor_area(self):
+        """Area for a single rotor (i.e. can be multiple blades attached to the same motor)"""
         return 0.119087 * self._rotor_radius ** 2 * self._no_blades
     
     @property
@@ -214,20 +229,30 @@ class Rotorcraft:
     @property
     def hover_power(self):
         print("Hover power calculations:")
-        hover_tip_speed = self.calc_tip_speed(self.hover_thrust_per_rotor, self.blade_area) # TODO: maybe make this a property also?
-        return self.calc_thrust_power(self.hover_thrust_per_rotor, self.blade_area, self.induced_power_factor_hover, hover_tip_speed)
+        return self.calc_thrust_power(self.hover_thrust_per_rotor, self.rotor_area, self.induced_power_factor_hover, self.hover_tip_speed)
     
     @property
     def f_flight_power(self):
         """Using hover thrust power because induced power factor increases induced power.
-        Using increased advancing speed tip limit to increase profile power -> probably conservative because of retreating tip speed"""
+        Using increased advancing speed tip limit to increase profile power -> probably conservative because of retreating tip speed
+        Using advancing tip speed limit instead of forward flight tip speed to be conservative since profile power increased by tip speed which
+        is highest in the advancing portion of the blade in forward flight."""
         print("Forward flight power calculations")
-        return self.calc_thrust_power(self.hover_thrust_per_rotor, self.blade_area, self.induced_power_factor_forward, self.dc.ADVANCING_TIP_SPEED_LIMIT)
+        return self.calc_thrust_power(self.f_flight_thrust_per_rotor, self.rotor_area, self.induced_power_factor_forward, self.dc.ADVANCING_TIP_SPEED_LIMIT)
     
     @property
-    def forward_velocity(self):    
-        "Forward velocity limited by the advancing blade tip mach number. Assumes flying with hover condition tip speed." # TODO: Could define a forward flight angle, and determine the increased thrust required for forward flight. Then this could be used to determine the tip speed at forward flight and a more accurate forward flight speed.
-        return self.dc.ADVANCING_TIP_SPEED_LIMIT - self.calc_tip_speed(self.hover_thrust_per_rotor, self.blade_area)
+    def hover_tip_speed(self):
+        return self.calc_tip_speed(self.hover_thrust_per_rotor, self.rotor_area)
+
+    @property
+    def f_flight_tip_speed(self):
+        """Forward tip speed assumes increased thrust in forward flight due to tilt required to produce forward velocity"""
+        return self.calc_tip_speed(self.f_flight_thrust_per_rotor, self.rotor_area)
+
+    @property
+    def max_forward_velocity(self):    
+        "Forward velocity limited by the advancing blade tip mach number"
+        return self.dc.ADVANCING_TIP_SPEED_LIMIT - self.f_flight_tip_speed
 
     @property
     def induced_power_factor_hover(self):
@@ -285,21 +310,38 @@ class TiltRotorcraft(Rotorcraft):
 
     def calc_max_thrust(self, design_mass):
         """Calculate thrust based on total design mass, not mass available for componentry (e.g. 50kg, with 40kg left for components)"""
-        tiltrotor_multiplier = self._no_rotors / self.no_nontilt_rotors
-        return self.dc.HOVER_THRUST_CONDITION * design_mass * mars_constants.GRAVITY * tiltrotor_multiplier
+        return self.dc.HOVER_THRUST_CONDITION * design_mass * mars_constants.GRAVITY * self.tiltrotor_multiplier
     
+    @property
+    def tiltrotor_multiplier(self):
+        return self._no_rotors / self.no_nontilt_rotors
+
     # from NASA MSH paper and other papers listed in Notion
     @property
     def induced_power_factor_hover(self):
         return 1.2
     
-    # TODO update this
     @property
     def induced_power_factor_forward(self):
         return 2.0
     
-    # TODO -> update this with forward velocity of tiltrotor
     @property
-    def forward_velocity(self):    
-        advancing_blade_limit = self.dc.ADVANCING_TIP_SPEED_LIMIT - self.dc.TIP_SPEED_LIMIT
-        return 1
+    def f_flight_thrust_per_rotor(self):
+        return self.hover_thrust_per_rotor * self.tiltrotor_multiplier
+    
+    @property
+    def f_flight_power(self):
+        """Using hover thrust power because induced power factor increases induced power.
+        Using increased advancing speed tip limit to increase profile power -> probably conservative because of retreating tip speed
+        Using advancing tip speed limit instead of forward flight tip speed to be conservative since profile power increased by tip speed which
+        is highest in the advancing portion of the blade in forward flight."""
+        print("Forward flight power calculations: TILTROTOR")
+        nontilted_power = self.calc_thrust_power(
+            self.f_flight_thrust_per_rotor, self.rotor_area, self.induced_power_factor_forward, 
+            self.dc.ADVANCING_TIP_SPEED_LIMIT, self._no_nontilt_rotors
+        )
+        tilted_power = self.calc_thrust_power(
+            self.hover_thrust_per_rotor, self.rotor_area, self.induced_power_factor_hover,
+            self.hover_tip_speed, self._no_rotors - self._no_nontilt_rotors
+        )
+        return nontilted_power + tilted_power
