@@ -5,8 +5,10 @@ from mission_design import FlightMissionScenario, DesignConstraints, DesignAssum
 
 class Rotorcraft:
 
-    def __init__(self, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
+    def __init__(self, name, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions):
+        self.name = name 
+
         self._mission_scenario = mission_scenario
         self._design_constraints = design_constraints
         self._design_assumptions = design_assumptions
@@ -14,12 +16,15 @@ class Rotorcraft:
         self._no_rotors = no_rotors
         self._no_blades = no_blades
 
+        # to calculate total diameter
+        self._no_nonoverlapping_rotors = self._no_rotors
+
     ##########################################################
     ##### ANALYSES
     ##########################################################
 
     def calc_and_verify_initial_design(self, design_mass=None):
-        print("\n\n-----\nNew analysis: calculation and verification of initial design\n-----\n")
+        print(f"\n{self.name}\n-----\nNew analysis: calculation and verification of initial design\n-----\n")
         self._design_mass = self.dc.MASS_LIMIT if not design_mass else design_mass
         print(f"Design mass of rotorcraft is: {self._design_mass:.2f}kg")
 
@@ -28,10 +33,10 @@ class Rotorcraft:
 
         self._rotor_radius = self.calc_rotor_radius(self.max_thrust_per_rotor)
         print(f"Rotor radius required to produce maximum thrust is {self._rotor_radius:.2f}m")
-        # TODO figure out the geometry better
-        if self._rotor_radius * 2 > self.dc.MAX_DIAMETER:
-            raise ValueError(f"Cannot create required thrust to fit in aeroshell. Rotor radius: {self._rotor_radius:.2f}, aeroshell diameter: {self.dc.MAX_DIAMETER}")
         
+        if self.total_diameter > self.dc.MAX_DIAMETER:
+            raise ValueError(f"Cannot create required thrust to fit in aeroshell. Rotor radius: {self._rotor_radius:.2f} results in diameter {self.total_diameter:.2f}m aeroshell diameter: {self.dc.MAX_DIAMETER}")
+                
         self._max_thrust_power = self.calc_max_thrust_power(self.hover_thrust_per_rotor, self.rotor_area)
         print(f"Power required for maximum thrust is: {self._max_thrust_power:.2f}W")
 
@@ -71,13 +76,23 @@ class Rotorcraft:
         max_payload = self.calc_and_verify_initial_design(design_mass)
         valid_payloads = list(range(int(max_payload), int(min_payload)-1,-1))
         valid_payloads.insert(0, max_payload)
-        extra_masses = [max_payload - reduced for reduced in valid_payloads]
+        extra_masses = [max_payload - reduced + self._battery_mass for reduced in valid_payloads]
         extra_energies = [self.calc_energy_from_battery_mass(extra_mass) for extra_mass in extra_masses]
         extra_hover_times = [self.hover_time_from_energy(extra_energy) for extra_energy in extra_energies]
         extra_f_flight_distances = [self.f_flight_distance_from_energy(extra_energy) for extra_energy in extra_energies]
 
         return valid_payloads, extra_hover_times, extra_f_flight_distances
     
+    def get_csv_summary(self):
+        """aircraft,no_rotors,no_nontilting_rotors,no_blades,max_thrust_requirement,rotor_radius,max_thrust_power,hover_power,f_flight_power,motor_rpm_hover,motor_power,motor_power_spec,motor_torque,max_forward_velocity,total_energy,flight_energy,ground_energy,sampling_energy,sleep_energy,design_mass,contingency_mass,motor_mass,battery_mass,solar_panel_mass,rotor_mass,structure_mass,ground_mobility_mass,flight_elec_mass,total_empty_mass,payload"""
+        summary = [self.name, self._no_rotors, self._no_rotors, self._no_blades, self._max_thrust, self._rotor_radius, 
+                   self._max_thrust_power, self.hover_power, self.f_flight_power, self.motor_rpm_hover, self._max_thrust_power, 
+                   self._motor_power_spec, self._torque, self.max_forward_velocity, 
+                   self._energy_per_sol, self._flight_energy, self._ground_mobility_energy, self._sampling_mechanism_energy, self._sleep_energy, 
+                   self._design_mass, self._total_available_mass, self._motor_mass, self._battery_mass, self._solar_panel_mass, 
+                   self._rotor_mass, self._ground_mobility_mass, self._flight_electronics_mass, self._empty_mass, self._payload]
+        return summary
+
     ##########################################################
     ##### CALCULATIONS OF PARAMETERS
     ##########################################################
@@ -100,6 +115,7 @@ class Rotorcraft:
         return rotor_radius
 
     def calc_thrust_power(self, thrust_per_rotor, blade_area, induced_power_factor, tip_speed, no_rotors=None):
+        """Considers propulsive efficiency (i.e. motor efficiency and power lost to other things such as servos)"""
         if no_rotors is None:
             no_rotors = self._no_rotors
         induced_power = induced_power_factor * thrust_per_rotor * \
@@ -118,48 +134,51 @@ class Rotorcraft:
     def calc_torque(self, thrust_power, rotor_radius):
         """From Ronan's aerodynamics notes""" 
         rotational_speed = self.dc.TIP_SPEED_LIMIT / rotor_radius
-        print(f"Motor rotational speed at hover: {rotational_speed / (rotor_radius * 2 * np.pi) * 60:.2f}RPM")
+        print(f"Motor rotational speed at hover: {self.motor_rpm_hover:.2f}RPM")
         print(f"Power required from the motors at max thrust is: {thrust_power:.2f}W")
-        print(f"Motor is specced to: {self.hover_power * 1.5:.2f}W (150% hover power)")
+        self._motor_power_spec = self.hover_power * 1.5
+        print(f"Motor is specced to: {self._motor_power_spec:.2f}W (150% hover power)")
         return thrust_power / rotational_speed
     
     def calc_energy_per_sol(self):
         print("----\nEnergy calculations\n----")
         print(f"Forward velocity used for mission: {self._mission_scenario.FORWARD_FLIGHT_SPEED:.2f}m/s")
-        flight_energy = self._mission_scenario.get_single_flight_energy(self.hover_power, self.f_flight_power, self.da.AVIONICS_POWER)
-        print(f"Single flight: {flight_energy/1e6:.3f}MJ")
-        sampling_mechanism_energy = self.da.SAMPLING_MECHANISM_POWER * self.da.SAMPLING_TIME
-        print(f"Sampling mechanism: {sampling_mechanism_energy/1e6:.3f}MJ")
-        sleep_energy = 0.518 * self._design_mass**(1/3) * mars_constants.SOL_SECONDS
-        print(f"Sleeping: {sleep_energy/1e6:.3f}MJ")
+        self._flight_energy = self._mission_scenario.get_single_flight_energy(self.hover_power, self.f_flight_power, self.da.AVIONICS_POWER)
+        print(f"Single flight: {self._flight_energy/1e6:.3f}MJ")
+        self._ground_mobility_energy = self.da.GROUND_MOBILITY_POWER * self.da.GROUND_MOBILITY_TIME
+        print(f"Ground mobility: {self._ground_mobility_energy/1e6:.3f}MJ")
+        self._sampling_mechanism_energy = self.da.SAMPLING_MECHANISM_POWER * self.da.SAMPLING_TIME
+        print(f"Sampling mechanism: {self._sampling_mechanism_energy/1e6:.3f}MJ")
+        self._sleep_energy = 0.518 * self._design_mass**(1/3) * mars_constants.SOL_SECONDS
+        print(f"Sleeping: {self._sleep_energy/1e6:.3f}MJ")
 
-        mission_energy = flight_energy + sampling_mechanism_energy + sleep_energy 
+        mission_energy = self._flight_energy + self._ground_mobility_energy + self._sampling_mechanism_energy + self._sleep_energy 
         return self.da.BATTERY_CONTINGENCY * mission_energy
     
     def calc_empty_mass(self, torque, energy):
         print("----\nMass calculations\n----")
-        motor_mass = 0.076 * torque**0.86 # kg - NASA MSH (based on MH)
-        print(f"Motor: {motor_mass:.2f}kg")
+        self._motor_mass = 0.076 * torque**0.86 # kg - NASA MSH (based on MH)
+        print(f"Motor: {self._motor_mass:.2f}kg")
         
         energy_required = energy / self.da.USABLE_BATTERY_PERC
         energy_required_Wh = energy_required / (60*60)
-        battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
-        print(f"Battery: {battery_mass:.2f}kg")
-
-        total_power = energy_required / mars_constants.SOL_SECONDS
-        solar_panel_area = total_power / self.da.SOLAR_PANEL_POWER_DENSITY # m^2
-        solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
-        print(f"Solar panel: {solar_panel_mass:.2f}kg")
+        self._battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
+        print(f"Battery: {self._battery_mass:.2f}kg")
+        solar_panel_area = energy_required / self.da.SOLAR_PANEL_ENERGY_PER_SOL # m^2
+        self._solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
+        print(f"Solar panel: {self._solar_panel_mass:.2f}kg")
         # TODO decide between these methods
         # rotor_mass = 1.1 * self.rotor_area * self._no_rotors# NASA MSH paper
-        rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
-        print(f"Rotors: {rotor_mass:.2f}kg")
+        self._rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
+        print(f"Rotors: {self._rotor_mass:.2f}kg")
         # TODO could consider things like hub, shaft, support arms, fuselage -> however I think this is overspecifying and hence scaling with design mass
-        structure_mass = 1/3 * self._design_mass - rotor_mass # based on MSH paper designs
-        print(f"Structure: {structure_mass + rotor_mass:.2f}kg")
-        flight_electronics_mass = self.da.ELECTRONICS_MASS
-        print(f"Flight electronics: {flight_electronics_mass:.2f}kg")
-        return motor_mass + solar_panel_mass + battery_mass + rotor_mass + structure_mass + flight_electronics_mass
+        self._structure_mass = 1/3 * self._design_mass - self._rotor_mass # based on MSH paper designs
+        print(f"Structure: {self._structure_mass:.2f}kg")
+        self._ground_mobility_mass = 0.05 * self._design_mass
+        print(f"Wheel + motor: {self._ground_mobility_mass:.2f}kg")
+        self._flight_electronics_mass = self.da.ELECTRONICS_MASS
+        print(f"Flight electronics: {self._flight_electronics_mass:.2f}kg")
+        return self._motor_mass + self._solar_panel_mass + self._battery_mass + self._rotor_mass + self._structure_mass + self._ground_mobility_mass + self._flight_electronics_mass
     
     def calc_energy_from_battery_mass(self, battery_mass):
         """battery_mass in kg, energy returned in joules"""
@@ -169,10 +188,12 @@ class Rotorcraft:
         return available_mass - empty_mass
     
     def hover_time_from_energy(self, energy):
+        """Energy in J. self.hover_power in W. Hover time in seconds"""
         return energy / self.hover_power
     
     def f_flight_distance_from_energy(self, energy):
-        return energy / self._mission_scenario.FORWARD_FLIGHT_SPEED
+        """Energy in J. self.f_flight_power in W. self._mission_scenario.FORWARD_FLIGHT_SPEED in m/s. Range in metres"""
+        return energy / self.f_flight_power * self._mission_scenario.FORWARD_FLIGHT_SPEED
     
     ##########################################################
     ##### GETTERS AND SETTERS
@@ -185,6 +206,18 @@ class Rotorcraft:
     @property 
     def da(self):
         return self._design_assumptions
+    
+    @property
+    def total_diameter(self):
+        if self._no_nonoverlapping_rotors == 1:
+            return 2 * self._rotor_radius
+        elif self._no_nonoverlapping_rotors == 4:
+            return 2 * self._rotor_radius * np.sqrt(2) + 2 * self._rotor_radius
+        elif self._no_nonoverlapping_rotors == 6:
+            return 3 * self._rotor_radius * 2
+        # TODO update this
+        elif self._no_nonoverlapping_rotors == 8:
+            return 3.5 * self._rotor_radius * 2
 
     @property
     def total_available_mass(self):
@@ -248,6 +281,10 @@ class Rotorcraft:
     def f_flight_tip_speed(self):
         """Forward tip speed assumes increased thrust in forward flight due to tilt required to produce forward velocity"""
         return self.calc_tip_speed(self.f_flight_thrust_per_rotor, self.rotor_area)
+    
+    @property
+    def motor_rpm_hover(self):
+        return self.dc.TIP_SPEED_LIMIT / (self._rotor_radius * 2 * np.pi) * 60
 
     @property
     def max_forward_velocity(self):    
@@ -262,17 +299,13 @@ class Rotorcraft:
     def induced_power_factor_forward(self):
         raise TypeError("In abstract base class. Instantiate type of aircraft.")
 
-    @property
-    def total_power(self):
-        return self._energy_per_sol / mars_constants.SOL_SECONDS
-
 
 class ConventionalRotorcraft(Rotorcraft):
 
-    def __init__(self, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
+    def __init__(self, name, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions):
         
-        super().__init__(no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
+        super().__init__(name, no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
 
     # from NASA MSH paper and other papers listed in Notion
     @property
@@ -282,13 +315,16 @@ class ConventionalRotorcraft(Rotorcraft):
     @property
     def induced_power_factor_forward(self):
         return 2.0
+    
 
 class CoaxialRotorcraft(Rotorcraft):
 
-    def __init__(self, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
+    def __init__(self, name, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions):
         
-        super().__init__(no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
+        super().__init__(name, no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
+
+        self._no_nonoverlapping_rotors = self._no_rotors / 2
 
     # from NASA MSH paper and other papers listed in Notion
     @property
@@ -298,13 +334,14 @@ class CoaxialRotorcraft(Rotorcraft):
     @property
     def induced_power_factor_forward(self):
         return 1.6
+    
 
 class TiltRotorcraft(Rotorcraft):
 
-    def __init__(self, no_rotors, no_nontilt_rotors, no_blades, mission_scenario: FlightMissionScenario, 
+    def __init__(self, name, no_rotors, no_nontilt_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions):
         
-        super().__init__(no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
+        super().__init__(name, no_rotors, no_blades, mission_scenario, design_constraints, design_assumptions)
 
         self._no_nontilt_rotors = no_nontilt_rotors
 
@@ -314,7 +351,7 @@ class TiltRotorcraft(Rotorcraft):
     
     @property
     def tiltrotor_multiplier(self):
-        return self._no_rotors / self.no_nontilt_rotors
+        return self._no_rotors / self._no_nontilt_rotors
 
     # from NASA MSH paper and other papers listed in Notion
     @property
