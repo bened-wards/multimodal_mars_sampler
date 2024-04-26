@@ -86,6 +86,7 @@ class DesignAssumptions:
 
     GROUND_MOBILITY_POWER = 100 # W - TODO make this more accurate - somewhat random for now
     GROUND_MOBILITY_TIME = 5 * 60 # seconds
+    GROUND_MOBILITY_MASS_PROPORTION = 0.05 # 5%
     
     # assumption that NASA paper considered daylight hours in their calculation
     SOLAR_PANEL_ENERGY_PER_SOL = 540 * 60 * 60 # J/m^2 available in one sol (daylight charging) - NASA MSH paper
@@ -95,4 +96,8 @@ class DesignAssumptions:
     USABLE_BATTERY_PERC = 0.7 # 10-80% depth-of-discharge
     BATTERY_DENSITY = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast 
     ELECTRONICS_MASS = 2.65 # TODO: make this something reasonable - should represent flight control/avionics weight
+
+    # extra mass factors
+    ROTOR_MASS_FACTOR = 1
+    MOTOR_MASS_FACTOR = 1
     

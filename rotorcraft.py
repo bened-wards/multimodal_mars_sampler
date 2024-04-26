@@ -71,6 +71,23 @@ class Rotorcraft:
         
         payload_efficiencies = [payload/design_mass for payload, design_mass in zip(payloads, design_masses)]
         return design_masses, payload_efficiencies
+    
+    def number_of_blades_analysis(self, design_masses=None):
+        if design_masses is None:
+            design_masses = [10, 15, 20, 25, 30, 35, 40, 45, 50]
+        
+        payloads = []
+        rotor_radiuses = []
+        for design_mass in design_masses:
+            try:
+                payloads.append(self.calc_and_verify_initial_design(design_mass))
+                rotor_radiuses.append(self._rotor_radius)
+            except ValueError:
+                payloads.append(0)
+                rotor_radiuses.append(0)
+        
+        payload_efficiencies = [payload/design_mass for payload, design_mass in zip(payloads, design_masses)]
+        return design_masses, payload_efficiencies, rotor_radiuses
 
     def trade_payload_for_battery(self, design_mass, min_payload):
         max_payload = self.calc_and_verify_initial_design(design_mass)
@@ -158,7 +175,7 @@ class Rotorcraft:
     
     def calc_empty_mass(self, torque, energy):
         print("----\nMass calculations\n----")
-        self._motor_mass = 0.076 * torque**0.86 # kg - NASA MSH (based on MH)
+        self._motor_mass = self.da.MOTOR_MASS_FACTOR * 0.076 * torque**0.86 # kg - NASA MSH (based on MH)
         print(f"Motor: {self._motor_mass:.2f}kg")
         
         energy_required = energy / self.da.USABLE_BATTERY_PERC
@@ -171,9 +188,9 @@ class Rotorcraft:
         # TODO make this more representative using density?
         self._rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
         print(f"Rotors: {self._rotor_mass:.2f}kg")
-        self._structure_mass = 1/3 * self._design_mass - self._rotor_mass # based on MSH paper designs
+        self._structure_mass = 1/3 * self._design_mass - (1 / self.da.ROTOR_MASS_FACTOR) * self._rotor_mass # based on MSH paper designs
         print(f"Structure: {self._structure_mass:.2f}kg")
-        self._ground_mobility_mass = 0.05 * self._design_mass
+        self._ground_mobility_mass = self.da.GROUND_MOBILITY_MASS_PROPORTION * self._design_mass
         print(f"Wheel + motor: {self._ground_mobility_mass:.2f}kg")
         self._flight_electronics_mass = self.da.ELECTRONICS_MASS
         print(f"Flight electronics: {self._flight_electronics_mass:.2f}kg")
