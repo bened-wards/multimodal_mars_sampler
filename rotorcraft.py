@@ -123,7 +123,7 @@ class Rotorcraft:
         profile_power = mars_constants.DENSITY * blade_area * tip_speed**3 * self.da.DRAG_COEF_MEAN / 8
         print(f"Induced power per rotor is {induced_power:.2f}W, profile power per rotor is {profile_power:.2f}W")
         thrust_power_per_rotor =  induced_power + profile_power
-        return thrust_power_per_rotor * no_rotors / self.da.PROPULSIVE_EFFICIENCY
+        return thrust_power_per_rotor * no_rotors / self.propulsive_efficiency
     
     def calc_max_thrust_power(self, max_thrust_per_rotor, blade_area):
         """Assuming ok to use hover induced power factor since thrust has increased for induced power.
@@ -297,6 +297,14 @@ class Rotorcraft:
     @property
     def induced_power_factor_forward(self):
         raise TypeError("In abstract base class. Instantiate type of aircraft.")
+    
+    @property 
+    def rotor_servo_power_proportion(self):
+        raise TypeError("In abstract base class. Instantiate type of aircraft.")
+    
+    @property
+    def propulsive_efficiency(self):
+        return self._design_assumptions.MOTOR_EFFICIENCY * (1 - self.rotor_servo_power_proportion)
 
 
 class ConventionalRotorcraft(Rotorcraft):
@@ -314,6 +322,10 @@ class ConventionalRotorcraft(Rotorcraft):
     @property
     def induced_power_factor_forward(self):
         return 2.0
+    
+    @property
+    def rotor_servo_power_proportion(self):
+        return 0
     
 
 class CoaxialRotorcraft(Rotorcraft):
@@ -334,8 +346,12 @@ class CoaxialRotorcraft(Rotorcraft):
     def induced_power_factor_forward(self):
         return 1.6
     
+    @property
+    def rotor_servo_power_proportion(self):
+        return 0.15
+    
 
-class TiltRotorcraft(Rotorcraft):
+class TiltRotorcraft(ConventionalRotorcraft):
 
     def __init__(self, name, no_rotors, no_nontilt_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions):
@@ -351,15 +367,6 @@ class TiltRotorcraft(Rotorcraft):
     @property
     def tiltrotor_multiplier(self):
         return self._no_rotors / self._no_nontilt_rotors
-
-    # from NASA MSH paper and other papers listed in Notion
-    @property
-    def induced_power_factor_hover(self):
-        return 1.2
-    
-    @property
-    def induced_power_factor_forward(self):
-        return 2.0
     
     @property
     def f_flight_thrust_per_rotor(self):

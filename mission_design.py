@@ -76,8 +76,8 @@ class DesignAssumptions:
 
     # assumptions from NASA MSH paper
     MOTOR_EFFICIENCY = 0.8 # 80%
-    ROTOR_SERVO_POWER = 0.15 # 15%
-    PROPULSIVE_EFFICIENCY = MOTOR_EFFICIENCY * (1 - ROTOR_SERVO_POWER)
+    # power reserved for servo pitch control moved into aircraft classes
+    # due to differences between coaxial and conventional
 
     AVIONICS_POWER = 35 # W - NASA MSH paper
     SAMPLING_MECHANISM_POWER = 15 # W - TODO make this more accurate but based on HoneyBee corer for now 
