@@ -76,12 +76,12 @@ class Rotorcraft:
         max_payload = self.calc_and_verify_initial_design(design_mass)
         valid_payloads = list(range(int(max_payload), int(min_payload)-1,-1))
         valid_payloads.insert(0, max_payload)
-        extra_masses = [max_payload - reduced + self._battery_mass for reduced in valid_payloads]
-        extra_energies = [self.calc_energy_from_battery_mass(extra_mass) for extra_mass in extra_masses]
-        extra_hover_times = [self.hover_time_from_energy(extra_energy) for extra_energy in extra_energies]
-        extra_f_flight_distances = [self.f_flight_distance_from_energy(extra_energy) for extra_energy in extra_energies]
+        battery_masses = [max_payload - reduced + self._battery_mass for reduced in valid_payloads]
+        energies = [self.calc_energy_from_battery_mass(extra_mass) for extra_mass in battery_masses]
+        hover_times = [self.hover_time_from_energy(extra_energy) for extra_energy in energies]
+        f_flight_distances = [self.f_flight_distance_from_energy(extra_energy) for extra_energy in energies]
 
-        return valid_payloads, extra_hover_times, extra_f_flight_distances
+        return valid_payloads, hover_times, f_flight_distances
     
     def get_csv_summary(self):
         """aircraft,no_rotors,no_nontilting_rotors,no_blades,max_thrust_requirement,rotor_radius,max_thrust_power,hover_power,f_flight_power,motor_rpm_hover,motor_power,motor_power_spec,motor_torque,max_forward_velocity,total_energy,flight_energy,ground_energy,sampling_energy,sleep_energy,design_mass,contingency_mass,motor_mass,battery_mass,solar_panel_mass,rotor_mass,structure_mass,ground_mobility_mass,flight_elec_mass,total_empty_mass,payload"""
@@ -145,6 +145,7 @@ class Rotorcraft:
         print(f"Forward velocity used for mission: {self._mission_scenario.FORWARD_FLIGHT_SPEED:.2f}m/s")
         self._flight_energy = self._mission_scenario.get_single_flight_energy(self.hover_power, self.f_flight_power, self.da.AVIONICS_POWER)
         print(f"Single flight: {self._flight_energy/1e6:.3f}MJ")
+        # TODO - should this be different for the tilt rotor?
         self._ground_mobility_energy = self.da.GROUND_MOBILITY_POWER * self.da.GROUND_MOBILITY_TIME
         print(f"Ground mobility: {self._ground_mobility_energy/1e6:.3f}MJ")
         self._sampling_mechanism_energy = self.da.SAMPLING_MECHANISM_POWER * self.da.SAMPLING_TIME
@@ -167,11 +168,9 @@ class Rotorcraft:
         solar_panel_area = energy_required / self.da.SOLAR_PANEL_ENERGY_PER_SOL # m^2
         self._solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
         print(f"Solar panel: {self._solar_panel_mass:.2f}kg")
-        # TODO decide between these methods
-        # rotor_mass = 1.1 * self.rotor_area * self._no_rotors# NASA MSH paper
+        # TODO make this more representative using density?
         self._rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
         print(f"Rotors: {self._rotor_mass:.2f}kg")
-        # TODO could consider things like hub, shaft, support arms, fuselage -> however I think this is overspecifying and hence scaling with design mass
         self._structure_mass = 1/3 * self._design_mass - self._rotor_mass # based on MSH paper designs
         print(f"Structure: {self._structure_mass:.2f}kg")
         self._ground_mobility_mass = 0.05 * self._design_mass
@@ -182,7 +181,7 @@ class Rotorcraft:
     
     def calc_energy_from_battery_mass(self, battery_mass):
         """battery_mass in kg, energy returned in joules"""
-        return battery_mass * self.da.BATTERY_DENSITY * 60 * 60
+        return battery_mass * self.da.BATTERY_DENSITY * 60 * 60 * self.da.USABLE_BATTERY_PERC / self.da.BATTERY_CONTINGENCY
     
     def calc_payload(self, available_mass, empty_mass):
         return available_mass - empty_mass

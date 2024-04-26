@@ -70,8 +70,8 @@ class DesignAssumptions:
 
     BLADE_LOADING = 0.175 # coefficient of thrust / solidity. From ROAMX rotor
     DRAG_COEF_MEAN = 1.02 / 28.25 # from Table 4 ROAMX motor paper: https://ntrs.nasa.gov/api/citations/20240000766/downloads/1689_Koning_Final_011924.pdf
-    FIGURE_OF_MERIT = 0.65 # from Table 3 ROAMX motor paper: https://ntrs.nasa.gov/api/citations/20240000766/downloads/1689_Koning_Final_011924.pdf
 
+    # TODO - what angle did Ingenuity fly at?
     FORWARD_FLIGHT_TILT_ANGLE = 15 # degrees
 
     # assumptions from NASA MSH paper
@@ -94,5 +94,5 @@ class DesignAssumptions:
     BATTERY_CONTINGENCY = 1.2 # 120% of mission energy
     USABLE_BATTERY_PERC = 0.7 # 10-80% depth-of-discharge
     BATTERY_DENSITY = 218.5 # Wh/kg - NASA MSH paper - JPL technology forecast 
-    ELECTRONICS_MASS = 2 # TODO: make this something reasonable - should represent flight control/avionics weight
+    ELECTRONICS_MASS = 2.65 # TODO: make this something reasonable - should represent flight control/avionics weight
     
