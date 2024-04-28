@@ -231,9 +231,8 @@ class Rotorcraft:
             return 2 * self._rotor_radius * np.sqrt(2) + 2 * self._rotor_radius
         elif self._no_nonoverlapping_rotors == 6:
             return 3 * self._rotor_radius * 2
-        # TODO update this
         elif self._no_nonoverlapping_rotors == 8:
-            return 3.5 * self._rotor_radius * 2
+            return 17/5 * self._rotor_radius * 2
 
     @property
     def total_available_mass(self):

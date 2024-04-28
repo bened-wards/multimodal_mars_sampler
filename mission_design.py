@@ -71,8 +71,7 @@ class DesignAssumptions:
     BLADE_LOADING = 0.175 # coefficient of thrust / solidity. From ROAMX rotor
     DRAG_COEF_MEAN = 1.02 / 28.25 # from Table 4 ROAMX motor paper: https://ntrs.nasa.gov/api/citations/20240000766/downloads/1689_Koning_Final_011924.pdf
 
-    # TODO - what angle did Ingenuity fly at?
-    FORWARD_FLIGHT_TILT_ANGLE = 15 # degrees
+    FORWARD_FLIGHT_TILT_ANGLE = 15 # degrees. NASA Ingenuity modellings
 
     # assumptions from NASA MSH paper
     MOTOR_EFFICIENCY = 0.8 # 80%
