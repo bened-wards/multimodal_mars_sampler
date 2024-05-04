@@ -62,14 +62,14 @@ def advanced_mh_test():
     # initial verification using design_mass = MASS_LIMIT
     payload = coaxial.calc_and_verify_initial_design(MASS_LIMIT)
 
-def mission_setup() -> tuple[FlightMissionScenario, DesignConstraints, DesignAssumptions]:
+def mission_setup(max_diameter=4.35) -> tuple[FlightMissionScenario, DesignConstraints, DesignAssumptions]:
     # don't really need hover apart from identification of sampling/landing locations
     # 3 minutes used in consideration of this and additional redundancy around takeoff/landing
     our_mission_scenario = FlightMissionScenario(
             hover_time=3*60, forward_flight_distance=600, climb_height=50, 
             climb_rate=10, descent_rate=10)
     MASS_LIMIT = 50
-    design_constraints = DesignConstraints(mass_limit=MASS_LIMIT, max_diameter=4.35)
+    design_constraints = DesignConstraints(mass_limit=MASS_LIMIT, max_diameter=max_diameter)
     design_assumptions = DesignAssumptions()
     return our_mission_scenario, design_constraints, design_assumptions
 

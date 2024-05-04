@@ -83,7 +83,7 @@ class DesignAssumptions:
     # -> might want to make larger since optimising for largest payload which would imply larger power
     SAMPLING_TIME = 15 * 60 # seconds
 
-    GROUND_MOBILITY_POWER = 100 # W - TODO make this more accurate - somewhat random for now
+    GROUND_MOBILITY_POWER = 48 # W - nominal power * 4 wheels for motors used on Perseverance rover: https://www.maxongroup.com/maxon/view/product/motor/ecmotor/ecflat/ecflat32/267121
     GROUND_MOBILITY_TIME = 5 * 60 # seconds
     GROUND_MOBILITY_MASS_PROPORTION = 0.05 # 5%
     
