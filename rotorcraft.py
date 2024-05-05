@@ -78,6 +78,7 @@ class Rotorcraft:
                 payloads.append(self.calc_and_verify_initial_design(design_mass))
                 valid_design_masses.append(design_mass)
             except ValueError:
+                self.logger.debug(f"Invalid design: {self.name} {design_mass}kg")
                 continue
         
         payload_efficiencies = [payload/design_mass for payload, design_mass in zip(payloads, valid_design_masses)]
@@ -85,7 +86,7 @@ class Rotorcraft:
     
     def number_of_blades_analysis(self, design_masses=None):
         if design_masses is None:
-            design_masses = [10, 15, 20, 25, 30, 35, 40, 45, 50]
+            design_masses = [15, 20, 25, 30, 35, 40, 45, 50]
         
         payloads = []
         rotor_radiuses = []
