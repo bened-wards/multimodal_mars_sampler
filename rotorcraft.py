@@ -21,7 +21,7 @@ class Rotorcraft:
         # to calculate total diameter
         self._no_nonoverlapping_rotors = self._no_rotors
 
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(name)
         self.logger.setLevel(log_level)
         formatter = logging.Formatter('%(message)s')
         ch = logging.StreamHandler()
@@ -140,11 +140,11 @@ class Rotorcraft:
 
     def calc_rotor_radius(self, thrust_per_rotor):
         rotor_area = self.calc_rotor_area(thrust_per_rotor)
-        self.logger.info(f"Rotor area requirement is: {rotor_area}")
+        self.logger.debug(f"Rotor area requirement is: {rotor_area}")
         blade_area = rotor_area / self._no_blades
-        self.logger.info(f"Blade area requirement is: {blade_area}")
+        self.logger.debug(f"Blade area requirement is: {blade_area}")
         rotor_radius = 2.8978 * blade_area ** 0.5
-        self.logger.info(f"Therefore rotor radius is: {rotor_radius}")
+        self.logger.debug(f"Therefore rotor radius is: {rotor_radius}")
         return rotor_radius
 
     def calc_thrust_power(self, thrust_per_rotor, blade_area, induced_power_factor, tip_speed, no_rotors=None):
@@ -154,21 +154,21 @@ class Rotorcraft:
         induced_power = induced_power_factor * thrust_per_rotor * \
             np.sqrt(thrust_per_rotor / (2 * mars_constants.DENSITY * self.disk_area))
         profile_power = mars_constants.DENSITY * blade_area * tip_speed**3 * self.da.DRAG_COEF_MEAN / 8
-        self.logger.info(f"Induced power per rotor is {induced_power:.2f}W, profile power per rotor is {profile_power:.2f}W")
+        self.logger.debug(f"Induced power per rotor is {induced_power:.2f}W, profile power per rotor is {profile_power:.2f}W")
         thrust_power_per_rotor =  induced_power + profile_power
         return thrust_power_per_rotor * no_rotors / self.propulsive_efficiency
     
     def calc_max_thrust_power(self, max_thrust_per_rotor, blade_area):
         """Assuming ok to use hover induced power factor since thrust has increased for induced power.
         Using max tip speed limit governed by MACH limit of 0.8"""
-        self.logger.info("Max thrust power calculations:")
+        self.logger.debug("Max thrust power calculations:")
         return self.calc_thrust_power(max_thrust_per_rotor, blade_area, self.induced_power_factor_hover, self.dc.TIP_SPEED_LIMIT)        
     
     def calc_torque(self, thrust_power, rotor_radius):
         """From Ronan's aerodynamics notes""" 
         rotational_speed = self.dc.TIP_SPEED_LIMIT / rotor_radius
         self.logger.info(f"Motor rotational speed at hover: {self.motor_rpm_hover:.2f}RPM")
-        self.logger.info(f"Power required from the motors at max thrust is: {thrust_power:.2f}W")
+        self.logger.debug(f"Power required from the motors at max thrust is: {thrust_power:.2f}W")
         self._motor_power_spec = self.hover_power * 1.5
         self.logger.info(f"Motor is specced to: {self._motor_power_spec:.2f}W (150% hover power)")
         return thrust_power / rotational_speed
@@ -197,8 +197,10 @@ class Rotorcraft:
         energy_required = energy / self.da.USABLE_BATTERY_PERC
         energy_required_Wh = energy_required / (60*60)
         self._battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
+        self.logger.debug(f"Battery capacity: {energy_required_Wh:.3f}Wh")
         self.logger.info(f"Battery: {self._battery_mass:.2f}kg")
         solar_panel_area = energy_required / self.da.SOLAR_PANEL_ENERGY_PER_SOL # m^2
+        self.logger.debug(f"Solar panel area: {solar_panel_area:.3f}m^2")
         self._solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
         self.logger.info(f"Solar panel: {self._solar_panel_mass:.2f}kg")
         # TODO make this more representative using density?
@@ -292,7 +294,7 @@ class Rotorcraft:
     
     @property
     def hover_power(self):
-        self.logger.info("Hover power calculations:")
+        self.logger.debug("Hover power calculations:")
         return self.calc_thrust_power(self.hover_thrust_per_rotor, self.rotor_area, self.induced_power_factor_hover, self.hover_tip_speed)
     
     @property
@@ -301,7 +303,7 @@ class Rotorcraft:
         Using increased advancing speed tip limit to increase profile power -> probably conservative because of retreating tip speed
         Using advancing tip speed limit instead of forward flight tip speed to be conservative since profile power increased by tip speed which
         is highest in the advancing portion of the blade in forward flight."""
-        self.logger.info("Forward flight power calculations")
+        self.logger.debug("Forward flight power calculations")
         return self.calc_thrust_power(self.f_flight_thrust_per_rotor, self.rotor_area, self.induced_power_factor_forward, self.dc.ADVANCING_TIP_SPEED_LIMIT)
     
     @property
@@ -413,7 +415,7 @@ class TiltRotorcraft(ConventionalRotorcraft):
         Using increased advancing speed tip limit to increase profile power -> probably conservative because of retreating tip speed
         Using advancing tip speed limit instead of forward flight tip speed to be conservative since profile power increased by tip speed which
         is highest in the advancing portion of the blade in forward flight."""
-        self.logger.info("Forward flight power calculations: TILTROTOR")
+        self.logger.debug("Forward flight power calculations: TILTROTOR")
         nontilted_power = self.calc_thrust_power(
             self.f_flight_thrust_per_rotor, self.rotor_area, self.induced_power_factor_forward, 
             self.dc.ADVANCING_TIP_SPEED_LIMIT, self._no_nontilt_rotors

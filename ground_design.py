@@ -115,14 +115,38 @@ def tiltrotor_plot():
     ## Tiltrotor calculations
     mission_scenario, design_constraints, design_assumptions = mission_setup(max_diameter=1000)
     tiltrotor = TiltRotorcraft("Hex-tiltrotor", 6, 4, 4, mission_scenario, design_constraints, design_assumptions)
-    tiltrotor.calc_and_verify_initial_design(mass)
+    tiltrotor.calc_and_verify_initial_design(MASS)
     no_forward_rotors = tiltrotor._no_rotors - tiltrotor._no_nontilt_rotors
+    
+    plt.figure()
+    for effective_ground_mass in [10, 15, 20, 30, 50]:
+        thrusts_required = []
+        for soil_char in SOIL_CHARS:    
+            vehicle = Vehicle(effective_ground_mass, NO_WHEELS, WHEEL)
+            tiltrotor_ground = TiltrotorVehicleOnGivenSurface(vehicle, soil_char)
+            thrust_required = tiltrotor_ground.thrust_required()
+            thrusts_required.append(thrust_required)
+            if thrust_required > tiltrotor.hover_thrust_per_rotor * no_forward_rotors:
+                print(f"Tilt rotor cannot produce required thrust ({thrust_required:.2f}N > {tiltrotor.hover_thrust_per_rotor * no_forward_rotors:.2f}N) for {soil_char}")
+            else:
+                print(f"Tilt rotor can produce required thrust ({thrust_required:.2f}N < {tiltrotor.hover_thrust_per_rotor * no_forward_rotors:.2f}N) for {soil_char}")
+
+        plt.plot(range(1,len(thrusts_required)+1), thrusts_required, marker='o', label=f'EGM={effective_ground_mass:.2f}kg')
+    
+    plt.plot(range(1,len(thrusts_required)+1), [tiltrotor.hover_thrust_per_rotor * no_forward_rotors]*len(thrusts_required), label='Maximum thrust producible', color="black")
+    
+    plt.title("Horizontal thrust required for varying effective ground masses (EGM)")
+    plt.xlabel("Soil type")
+    plt.ylabel("Thrust (N)")
+    plt.xlim([1, len(thrusts_required)])
+    plt.ylim([0, 500])
+    plt.legend(loc='upper right', fontsize=9)
 
     plt.figure()
     for a in [1,2,3]:
         thrusts_required = []
-        for soil_char in soil_chars:    
-            tiltrotor_ground = TiltrotorVehicleOnGivenSurface(vehicle, soil_char, a)
+        for soil_char in SOIL_CHARS:    
+            tiltrotor_ground = TiltrotorVehicleOnGivenSurface(VEHICLE, soil_char, a)
             thrust_required = tiltrotor_ground.thrust_required()
             thrusts_required.append(thrust_required)
             if thrust_required > tiltrotor.hover_thrust_per_rotor * no_forward_rotors:
@@ -132,28 +156,29 @@ def tiltrotor_plot():
 
         plt.plot(range(1,len(thrusts_required)+1), thrusts_required, marker='o', label=f'Horizontal thrust required, a={a}')
     
-    plt.plot(range(1,len(thrusts_required)+1), [tiltrotor.hover_thrust_per_rotor * no_forward_rotors]*len(thrusts_required), label='Maximum thrust producible')
+    plt.plot(range(1,len(thrusts_required)+1), [tiltrotor.hover_thrust_per_rotor * no_forward_rotors]*len(thrusts_required), label='Maximum thrust producible', color="black")
     
+    plt.title("Horizontal thrust required for varying accelerations required (50kg)")
     plt.xlabel("Soil type")
     plt.ylabel("Thrust (N)")
     plt.xlim([1, len(thrusts_required)])
-    plt.ylim([0, 450])
+    plt.ylim([0, 500])
     plt.legend(loc='upper right', fontsize=9)
     plt.show()
 
 def active_wheel_calcs():
     ## Active wheel calculations
     desired_velocity = 0.1 # m/s
-    for soil_char in soil_chars:
+    for soil_char in SOIL_CHARS:
         print(f"\nActive wheeled with {soil_char}")
-        active_ground = ActiveWheeledVehicleOnGivenSurface(vehicle, soil_char)
+        active_ground = ActiveWheeledVehicleOnGivenSurface(VEHICLE, soil_char)
         torque_per_wheel = active_ground.torque_required_per_wheel()
         print(f"Torque required per motor is {torque_per_wheel:.2f}N.m")
         print(f"Power required by force*velocity is {active_ground.force_required_per_wheel() * desired_velocity:.2f}W")
-        gear_ratio = torque_per_wheel / nominal_torque
-        rpm = nominal_rpm / gear_ratio
-        velocity = rpm * 2 * math.pi / 60 * vehicle.wheel.diameter
-        print(f"Velocity achieved at {nominal_power}W with gear ratio {gear_ratio:.2f} is {velocity:.2f}m/s={velocity*3.6:.2f}km/h")
+        gear_ratio = torque_per_wheel / NOMINAL_TORQUE
+        rpm = NOMINAL_RPM / gear_ratio
+        velocity = rpm * 2 * math.pi / 60 * active_ground.vehicle.wheel.diameter
+        print(f"Velocity achieved at {NOMINAL_POWER}W with gear ratio {gear_ratio:.2f} is {velocity:.2f}m/s={velocity*3.6:.2f}km/h")
 
 
 ## different wheels effect on rolling resistance, torque and velocity
@@ -166,19 +191,19 @@ def plot_wheel_characteristics():
     plt.figure(figsize=(12,5))
     for width, diameter in zip(widths, diameters):
         wheel = Wheel(width, diameter)
-        vehicle = Vehicle(mass, no_wheels, wheel)
+        vehicle = Vehicle(MASS, NO_WHEELS, wheel)
         sinkages = []
         rolling_resistances = []
         torques_per_wheel = []
         velocities = []
-        for soil_char in soil_chars:
+        for soil_char in SOIL_CHARS:
             active_ground = ActiveWheeledVehicleOnGivenSurface(vehicle, soil_char)
             sinkages.append(active_ground.sinkage()*100)
             rolling_resistances.append(active_ground.rolling_resistance())
             torque_per_wheel = active_ground.torque_required_per_wheel()
             torques_per_wheel.append(torque_per_wheel)
-            gear_ratio = torque_per_wheel / nominal_torque
-            rpm = nominal_rpm / gear_ratio
+            gear_ratio = torque_per_wheel / NOMINAL_TORQUE
+            rpm = NOMINAL_RPM / gear_ratio
             velocity = rpm * 2 * math.pi / 60 * diameter
             velocities.append(velocity)
             # plt.scatter(active_ground.sinkage()/100, active_ground.rolling_resistance(), label=f"{soil_char.description}")
@@ -229,31 +254,31 @@ def print_wheel_grid():
     widths = [0.1, 0.2, 0.3] # metres
     diameters = [0.2, 0.3, 0.4] # metres
     combinations = [(width, diameter) for width in widths for diameter in diameters]
-    soil_char = soil_chars[3]
+    soil_char = SOIL_CHARS[3]
     print(f"\n\nDiffering wheel characteristics for soil: {soil_char.description}")
     for width, diameter in combinations:
         wheel = Wheel(width, diameter)
-        vehicle = Vehicle(mass, no_wheels, wheel)
+        vehicle = Vehicle(MASS, NO_WHEELS, wheel)
         
         active_ground = ActiveWheeledVehicleOnGivenSurface(vehicle, soil_char)
         sinkage = active_ground.sinkage()*100 # cm
         rolling_resistance = active_ground.rolling_resistance() # N
         torque_per_wheel = active_ground.torque_required_per_wheel() # N.m
-        gear_ratio = torque_per_wheel / nominal_torque
-        rpm = nominal_rpm / gear_ratio
+        gear_ratio = torque_per_wheel / NOMINAL_TORQUE
+        rpm = NOMINAL_RPM / gear_ratio
         velocity = rpm * 2 * math.pi / 60 * diameter # m/s
 
         print(f"Wheel(w={width},d={diameter}): R={rolling_resistance:.3f}N, sinkage={sinkage:.3f}cm, T={torque_per_wheel:.3f}N.m per wheel, v={velocity:.3f}m/s")
         
 # GLOBALS
-mass = 50
-no_wheels = 4
-wheel_width = 0.2 # metres
-wheel_diameter = 0.3 # metres
-wheel = Wheel(wheel_width, wheel_diameter)
-vehicle = Vehicle(mass, no_wheels, wheel)
+MASS = 50
+NO_WHEELS = 4
+WHEEL_WIDTH = 0.2 # metres
+WHEEL_DIAMETER = 0.3 # metres
+WHEEL = Wheel(WHEEL_WIDTH, WHEEL_DIAMETER)
+VEHICLE = Vehicle(MASS, NO_WHEELS, WHEEL)
 
-soil_chars = [
+SOIL_CHARS = [
     SoilCharacteristics(0.67, 67.28, 0.68, "FineDust,LowDensity"),
     SoilCharacteristics(0.71, 61.96, 1.30, "FineDust,MedDensity"),
     SoilCharacteristics(0.75, 142.36, 1.66, "FineDust,HighDensity"),
@@ -262,14 +287,14 @@ soil_chars = [
     SoilCharacteristics(0.76, 2312.59, -30.10, "CoarseSand,HighDensity")
 ]
 # motor characteristics
-nominal_voltage = 24 #V
-nominal_current = 0.5 #A
-nominal_rpm = 2760 
-nominal_torque = 0.0255 # N.m
-nominal_power = nominal_voltage * nominal_current
+NOMINAL_VOLTAGE = 24 #V
+NOMINAL_CURRENT = 0.5 #A
+NOMINAL_RPM = 2760 
+NOMINAL_TORQUE = 0.0255 # N.m
+NOMINAL_POWER = NOMINAL_VOLTAGE * NOMINAL_CURRENT
 
 if __name__ == "__main__":
-    # tiltrotor_plot()
+    tiltrotor_plot()
     # active_wheel_calcs()
     # plot_wheel_characteristics()
-    print_wheel_grid()
+    # print_wheel_grid()
