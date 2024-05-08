@@ -141,9 +141,9 @@ class Rotorcraft:
     def calc_rotor_radius(self, thrust_per_rotor):
         rotor_area = self.calc_rotor_area(thrust_per_rotor)
         self.logger.debug(f"Rotor area requirement is: {rotor_area}")
-        blade_area = rotor_area / self._no_blades
-        self.logger.debug(f"Blade area requirement is: {blade_area}")
-        rotor_radius = 2.8978 * blade_area ** 0.5
+        self._blade_area = rotor_area / self._no_blades
+        self.logger.debug(f"Blade area requirement is: {self._blade_area}")
+        rotor_radius = 2.8978 * self._blade_area ** 0.5
         self.logger.debug(f"Therefore rotor radius is: {rotor_radius}")
         return rotor_radius
 
@@ -195,13 +195,13 @@ class Rotorcraft:
         self.logger.info(f"Motor: {self._motor_mass:.2f}kg")
         
         energy_required = energy / self.da.USABLE_BATTERY_PERC
-        energy_required_Wh = energy_required / (60*60)
-        self._battery_mass = energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
-        self.logger.debug(f"Battery capacity: {energy_required_Wh:.3f}Wh")
+        self._energy_required_Wh = energy_required / (60*60)
+        self._battery_mass = self._energy_required_Wh / self.da.BATTERY_DENSITY # NASA MSH paper
+        self.logger.debug(f"Battery capacity: {self._energy_required_Wh:.3f}Wh")
         self.logger.info(f"Battery: {self._battery_mass:.2f}kg")
-        solar_panel_area = energy_required / self.da.SOLAR_PANEL_ENERGY_PER_SOL # m^2
-        self.logger.debug(f"Solar panel area: {solar_panel_area:.3f}m^2")
-        self._solar_panel_mass = solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
+        self._solar_panel_area = energy_required / self.da.SOLAR_PANEL_ENERGY_PER_SOL # m^2
+        self.logger.debug(f"Solar panel area: {self._solar_panel_area:.3f}m^2")
+        self._solar_panel_mass = self._solar_panel_area * self.da.SOLAR_PANEL_MASS_DENSITY # kg
         self.logger.info(f"Solar panel: {self._solar_panel_mass:.2f}kg")
         # TODO make this more representative using density?
         self._rotor_mass = (0.168/0.72) * self._rotor_radius * self._no_blades * self._no_rotors # ROAMX blade correlation between mass and radius
