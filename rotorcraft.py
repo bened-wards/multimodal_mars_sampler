@@ -104,7 +104,10 @@ class Rotorcraft:
 
     def trade_payload_for_battery(self, design_mass, min_payload):
         max_payload = self.calc_and_verify_initial_design(design_mass)
-        valid_payloads = list(range(int(min_payload), int(max_payload)+1))
+        # if max_payload <= 6:
+        #     valid_payloads = list(range(int(min_payload), int(max_payload)+1))
+        # else:
+        valid_payloads = list(range(int(min_payload), int(max_payload)+1, 2))
         valid_payloads.append(max_payload)
         battery_masses = [max_payload - reduced + self._battery_mass for reduced in valid_payloads]
         energies = [self.calc_energy_from_battery_mass(extra_mass) for extra_mass in battery_masses]
@@ -147,22 +150,22 @@ class Rotorcraft:
         self.logger.debug(f"Therefore rotor radius is: {rotor_radius}")
         return rotor_radius
 
-    def calc_thrust_power(self, thrust_per_rotor, blade_area, induced_power_factor, tip_speed, no_rotors=None):
+    def calc_thrust_power(self, thrust_per_rotor, rotor_area, induced_power_factor, tip_speed, no_rotors=None):
         """Considers propulsive efficiency (i.e. motor efficiency and power lost to other things such as servos)"""
         if no_rotors is None:
             no_rotors = self._no_rotors
         induced_power = induced_power_factor * thrust_per_rotor * \
             np.sqrt(thrust_per_rotor / (2 * mars_constants.DENSITY * self.disk_area))
-        profile_power = mars_constants.DENSITY * blade_area * tip_speed**3 * self.da.DRAG_COEF_MEAN / 8
+        profile_power = mars_constants.DENSITY * rotor_area * tip_speed**3 * self.da.DRAG_COEF_MEAN / 8
         self.logger.debug(f"Induced power per rotor is {induced_power:.2f}W, profile power per rotor is {profile_power:.2f}W")
         thrust_power_per_rotor =  induced_power + profile_power
         return thrust_power_per_rotor * no_rotors / self.propulsive_efficiency
     
-    def calc_max_thrust_power(self, max_thrust_per_rotor, blade_area):
+    def calc_max_thrust_power(self, max_thrust_per_rotor, rotor_area):
         """Assuming ok to use hover induced power factor since thrust has increased for induced power.
         Using max tip speed limit governed by MACH limit of 0.8"""
         self.logger.debug("Max thrust power calculations:")
-        return self.calc_thrust_power(max_thrust_per_rotor, blade_area, self.induced_power_factor_hover, self.dc.TIP_SPEED_LIMIT)        
+        return self.calc_thrust_power(max_thrust_per_rotor, rotor_area, self.induced_power_factor_hover, self.dc.TIP_SPEED_LIMIT)        
     
     def calc_torque(self, thrust_power, rotor_radius):
         """From Ronan's aerodynamics notes""" 

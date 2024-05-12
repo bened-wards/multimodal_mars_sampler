@@ -11,11 +11,8 @@ mission_scenario = FlightMissionScenario(
         climb_rate=10, descent_rate=10)
 design_constraints = DesignConstraints(mass_limit=MASS_LIMIT, max_diameter=4.35)
 design_assumptions = DesignAssumptions()
-coaxial = CoaxialRotorcraft("Coaxial helicopter", 2, 4, mission_scenario, design_constraints, design_assumptions)
-quad_coaxial = CoaxialRotorcraft("Quad coaxial", 8, 4, mission_scenario, design_constraints, design_assumptions)
 
 def print_chars(aircraft: Rotorcraft):
-    return
     print("CHARACTERISTICS")
     print(aircraft.name)
     print(f"{aircraft._rotor_radius:.3f}")
@@ -47,38 +44,34 @@ def print_mass(aircraft: Rotorcraft):
     print(f"{aircraft._empty_mass:.2f}")
     print(f"{aircraft._payload:.2f}")
 
+coaxial2 = CoaxialRotorcraft("Coaxial helicopter - 2", 2, 2, mission_scenario, design_constraints, design_assumptions)
+quad_coaxial4 = CoaxialRotorcraft("Quad coaxial - 4", 8, 4, mission_scenario, design_constraints, design_assumptions)
+quad_coaxial2 = CoaxialRotorcraft("Quad coaxial - 2", 8, 2, mission_scenario, design_constraints, design_assumptions)
+
+
 # minimise design mass for minimum payload
-coaxial_design_mass = 20.38
-coaxial_payload = coaxial.calc_and_verify_initial_design(coaxial_design_mass)
-quad_design_mass = 18.92
-quad_payload = quad_coaxial.calc_and_verify_initial_design(quad_design_mass)
-print(f"{coaxial.name} ({coaxial_design_mass:.2f}kg): {coaxial_payload:.4f}kg. Diameter: {coaxial.total_diameter:.3f}m")
-print(f"{quad_coaxial.name} ({quad_design_mass:.2f}kg): {quad_payload:.4f}kg. Diameter: {quad_coaxial.total_diameter:.3f}m")
-print_chars(coaxial)
-print_chars(quad_coaxial)
-print_mass(coaxial)
-print_mass(quad_coaxial)
+quad_design_mass = 17.27
+quad_payload = quad_coaxial2.calc_and_verify_initial_design(quad_design_mass)
+print(f"{quad_coaxial2.name} ({quad_design_mass:.2f}kg): {quad_payload:.4f}kg. Diameter: {quad_coaxial2.total_diameter:.3f}m")
+print_chars(quad_coaxial2)
+print_mass(quad_coaxial2)
 
 # midpoint
 design_mass = 30
-coaxial_payload = coaxial.calc_and_verify_initial_design(design_mass)
-quad_payload = quad_coaxial.calc_and_verify_initial_design(design_mass)
-print(f"{coaxial.name} ({coaxial_design_mass:.2f}kg): {coaxial_payload:.2f}kg. Diameter: {coaxial.total_diameter:.3f}m")
-print(f"{quad_coaxial.name} ({quad_design_mass:.2f}kg): {quad_payload:.2f}kg. Diameter: {quad_coaxial.total_diameter:.3f}m")
-print_chars(coaxial)
-print_chars(quad_coaxial)
-print_mass(coaxial)
-print_mass(quad_coaxial)
+coaxial_payload = coaxial2.calc_and_verify_initial_design(design_mass)
+quad_payload = quad_coaxial4.calc_and_verify_initial_design(design_mass)
+print(f"{coaxial2.name} ({design_mass:.2f}kg): {coaxial_payload:.2f}kg. Diameter: {coaxial2.total_diameter:.3f}m")
+print(f"{quad_coaxial4.name} ({design_mass:.2f}kg): {quad_payload:.2f}kg. Diameter: {quad_coaxial4.total_diameter:.3f}m")
+print_chars(coaxial2)
+print_chars(quad_coaxial4)
+print_mass(coaxial2)
+print_mass(quad_coaxial4)
 
 # maximise payload
 design_mass = 50
-coaxial_payload = coaxial.calc_and_verify_initial_design(design_mass)
-quad_payload = quad_coaxial.calc_and_verify_initial_design(design_mass)
-print(f"{coaxial.name} ({coaxial_design_mass:.2f}kg): {coaxial_payload:.2f}kg. Diameter: {coaxial.total_diameter:.3f}m")
-print(f"{quad_coaxial.name} ({quad_design_mass:.2f}kg): {quad_payload:.2f}kg. Diameter: {quad_coaxial.total_diameter:.3f}m")
-print_chars(coaxial)
-print_chars(quad_coaxial)
-print_mass(coaxial)
-print_mass(quad_coaxial)
+quad_payload = quad_coaxial4.calc_and_verify_initial_design(design_mass)
+print(f"{quad_coaxial4.name} ({design_mass:.2f}kg): {quad_payload:.2f}kg. Diameter: {quad_coaxial4.total_diameter:.3f}m")
+print_chars(quad_coaxial4)
+print_mass(quad_coaxial4)
 
 
