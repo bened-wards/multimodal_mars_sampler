@@ -44,13 +44,13 @@ def print_mass(aircraft: Rotorcraft):
     print(f"{aircraft._empty_mass:.2f}")
     print(f"{aircraft._payload:.2f}")
 
-coaxial2 = CoaxialRotorcraft("Coaxial helicopter - 2", 2, 2, mission_scenario, design_constraints, design_assumptions)
-quad_coaxial4 = CoaxialRotorcraft("Quad coaxial - 4", 8, 4, mission_scenario, design_constraints, design_assumptions)
-quad_coaxial2 = CoaxialRotorcraft("Quad coaxial - 2", 8, 2, mission_scenario, design_constraints, design_assumptions)
+coaxial2 = CoaxialRotorcraft("Coaxial helicopter - 2", 2, 2, mission_scenario, design_constraints, design_assumptions, log_level=logging.DEBUG)
+quad_coaxial4 = CoaxialRotorcraft("Quad coaxial - 4", 8, 4, mission_scenario, design_constraints, design_assumptions, log_level=logging.DEBUG)
+quad_coaxial2 = CoaxialRotorcraft("Quad coaxial - 2", 8, 2, mission_scenario, design_constraints, design_assumptions, log_level=logging.DEBUG)
 
 
 # minimise design mass for minimum payload
-quad_design_mass = 17.27
+quad_design_mass = 17.96
 quad_payload = quad_coaxial2.calc_and_verify_initial_design(quad_design_mass)
 print(f"{quad_coaxial2.name} ({quad_design_mass:.2f}kg): {quad_payload:.4f}kg. Diameter: {quad_coaxial2.total_diameter:.3f}m")
 print_chars(quad_coaxial2)

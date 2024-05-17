@@ -43,6 +43,15 @@ class FlightMissionScenario:
         total_time = climb_time + f_flight_time + self.HOVER_TIME + descent_time
         avionics_energy = avionics_power * total_time
 
+        total_energy = climb_energy + hover_energy + f_flight_energy + descent_energy + avionics_energy
+
+        self._hover_proportion = hover_energy/total_energy
+        # print(f"Climb energy: {climb_energy/1e6:.4f}MJ. {climb_energy/total_energy*100:.2f}%")
+        # print(f"Hover energy: {hover_energy/1e6:.4f}MJ. {hover_energy/total_energy*100:.2f}%")
+        # print(f"Cruise energy: {f_flight_energy/1e6:.4f}MJ. {f_flight_energy/total_energy*100:.2f}%")
+        # print(f"Descent energy: {descent_energy/1e6:.4f}MJ. {descent_energy/total_energy*100:.2f}%")
+        # print(f"Avionics energy: {avionics_energy/1e6:.4f}MJ. {avionics_energy/total_energy*100:.2f}%")
+
         return climb_energy + hover_energy + f_flight_energy + descent_energy + avionics_energy
     
 class DesignConstraints:

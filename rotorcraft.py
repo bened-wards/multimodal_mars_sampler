@@ -8,7 +8,7 @@ class Rotorcraft:
 
     def __init__(self, name, no_rotors, no_blades, mission_scenario: FlightMissionScenario, 
                  design_constraints: DesignConstraints, design_assumptions: DesignAssumptions,
-                 log_level=logging.WARNING):
+                 log_level=logging.WARNING, rotor_blade_area_factor=0.119087):
         self.name = name 
 
         self._mission_scenario = mission_scenario
@@ -28,6 +28,8 @@ class Rotorcraft:
         ch.setFormatter(formatter)
         self.logger.addHandler(ch)
 
+        self._rotor_blade_area_factor = rotor_blade_area_factor
+
     ##########################################################
     ##### ANALYSES
     ##########################################################
@@ -46,7 +48,7 @@ class Rotorcraft:
         if self.total_diameter > self.dc.MAX_DIAMETER:
             raise ValueError(f"Cannot create required thrust to fit in aeroshell. Rotor radius: {self._rotor_radius:.2f} results in diameter {self.total_diameter:.2f}m aeroshell diameter: {self.dc.MAX_DIAMETER}")
                 
-        self._max_thrust_power = self.calc_max_thrust_power(self.hover_thrust_per_rotor, self.rotor_area)
+        self._max_thrust_power = self.calc_max_thrust_power(self.max_thrust_per_rotor, self.rotor_area)
         self.logger.info(f"Power required for maximum thrust is: {self._max_thrust_power:.2f}W")
 
         self._torque = self.calc_torque(self._max_thrust_power, self._rotor_radius)
@@ -125,6 +127,12 @@ class Rotorcraft:
                    self._design_mass, self._total_available_mass, self._motor_mass, self._battery_mass, self._solar_panel_mass, 
                    self._rotor_mass, self._ground_mobility_mass, self._flight_electronics_mass, self._empty_mass, self._payload]
         return summary
+    
+    def print_mission_energy_breakdown(self):
+        self._mission_scenario.get_single_flight_energy(self.hover_power, self.f_flight_power, self.da.AVIONICS_POWER)
+
+    def get_hover_proportion(self):
+        return self._mission_scenario._hover_proportion
 
     ##########################################################
     ##### CALCULATIONS OF PARAMETERS
@@ -146,7 +154,7 @@ class Rotorcraft:
         self.logger.debug(f"Rotor area requirement is: {rotor_area}")
         self._blade_area = rotor_area / self._no_blades
         self.logger.debug(f"Blade area requirement is: {self._blade_area}")
-        rotor_radius = 2.8978 * self._blade_area ** 0.5
+        rotor_radius = np.sqrt(1/self._rotor_blade_area_factor) * self._blade_area ** 0.5
         self.logger.debug(f"Therefore rotor radius is: {rotor_radius}")
         return rotor_radius
 
@@ -284,7 +292,7 @@ class Rotorcraft:
     @property
     def rotor_area(self):
         """Area for a single rotor (i.e. can be multiple blades attached to the same motor)"""
-        return 0.119087 * self._rotor_radius ** 2 * self._no_blades
+        return self._rotor_blade_area_factor * self._rotor_radius ** 2 * self._no_blades
     
     @property
     def disk_area(self):
