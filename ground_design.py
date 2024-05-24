@@ -135,7 +135,7 @@ def tiltrotor_plot():
     
     plt.plot(range(1,len(thrusts_required)+1), [tiltrotor.hover_thrust_per_rotor * no_forward_rotors]*len(thrusts_required), label='Maximum thrust producible', color="black")
     
-    plt.title("Horizontal thrust required for varying effective ground masses (EGM)")
+    # plt.title("Horizontal thrust required for varying effective ground masses (EGM)")
     plt.xlabel("Soil type")
     plt.ylabel("Thrust (N)")
     plt.xlim([1, len(thrusts_required)])
@@ -158,7 +158,7 @@ def tiltrotor_plot():
     
     plt.plot(range(1,len(thrusts_required)+1), [tiltrotor.hover_thrust_per_rotor * no_forward_rotors]*len(thrusts_required), label='Maximum thrust producible', color="black")
     
-    plt.title("Horizontal thrust required for varying accelerations required (50kg)")
+    # plt.title("Horizontal thrust required for varying accelerations required (50kg)")
     plt.xlabel("Soil type")
     plt.ylabel("Thrust (N)")
     plt.xlim([1, len(thrusts_required)])
@@ -249,6 +249,64 @@ def plot_wheel_characteristics():
     plt.show()
 
 
+## different wheels effect on rolling resistance, torque and velocity
+def plot_diameter_chars():
+    diameters = [0.15, 0.2, 0.25, 0.3, 0.35, 0.4] # metres
+    width = 0.2 # metres
+    plt.figure(figsize=(12,5))
+
+    for soil_char in SOIL_CHARS:
+        sinkages = []
+        rolling_resistances = []
+        torques_per_wheel = []
+        velocities = []
+        for diameter in diameters:
+            wheel = Wheel(width, diameter)
+            vehicle = Vehicle(MASS, NO_WHEELS, wheel)
+
+            active_ground = ActiveWheeledVehicleOnGivenSurface(vehicle, soil_char)
+            sinkages.append(active_ground.sinkage()*100)
+            rolling_resistances.append(active_ground.rolling_resistance())
+            torque_per_wheel = active_ground.torque_required_per_wheel()
+            torques_per_wheel.append(torque_per_wheel)
+            gear_ratio = torque_per_wheel / NOMINAL_TORQUE
+            rpm = NOMINAL_RPM / gear_ratio
+            velocity = rpm * 2 * math.pi / 60 * diameter
+            velocities.append(velocity)
+
+        plt.subplot(1,3,1)
+        plt.plot(diameters, rolling_resistances, linewidth=2, label=soil_char.description)
+
+        plt.subplot(1,3,2)
+        plt.plot(diameters, torques_per_wheel, linewidth=2, label=soil_char.description)
+
+        plt.subplot(1,3,3)
+        plt.plot(diameters, velocities, linewidth=2, label=soil_char.description)
+        
+    plt.subplot(1,3,1)
+    plt.xlabel("Diameter (m)")
+    plt.ylabel("Rolling resistance (N)")
+    plt.xlim([0.13, 0.42])
+    plt.ylim([0, 60])
+
+    plt.subplot(1,3,2)
+    plt.xlabel("Diameter (m)")
+    plt.ylabel("Torque per wheel (N.m)")
+    plt.xlim([0.13, 0.42])
+    plt.ylim([0, 13.5])
+    # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+    # # to create legend for report
+    # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+
+    plt.subplot(1,3,3)
+    plt.xlabel("Diameter (m)")
+    plt.ylabel("Velocity (m/s)")
+    plt.xlim([0.13, 0.42])
+    plt.ylim([0, 0.35])
+
+    plt.tight_layout()
+    plt.show()
+
 def print_wheel_grid():
     """Choose soil characteristic that produces most work required = fine dust medium density"""
     widths = [0.1, 0.2, 0.3] # metres
@@ -298,3 +356,5 @@ if __name__ == "__main__":
     # active_wheel_calcs()
     # plot_wheel_characteristics()
     # print_wheel_grid()
+
+    # plot_diameter_chars()
